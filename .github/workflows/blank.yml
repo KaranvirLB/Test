@@ -46,8 +46,8 @@ jobs:
     - name: Extract image from values.yaml
       id: extract_image
       run: |
-        IMAGE_REPO=$(grep -oP 'repository:\s*\K\S+' charts/uptime-kuma/values.yaml || echo "not_found")
-        IMAGE_TAG=$(grep -oP 'tag:\s*\K\S+' charts/uptime-kuma/values.yaml || echo "latest")
+        IMAGE_REPO=$(grep -oP 'repository:\s*\K\S+' helm/values.yaml || echo "not_found")
+        IMAGE_TAG=$(grep -oP 'tag:\s*\K\S+' helm/values.yaml || echo "latest")
         
         if [[ "$IMAGE_REPO" == "not_found" ]]; then
           echo "Error: IMAGE_REPO not found in values.yaml"
@@ -115,7 +115,7 @@ jobs:
           echo "✅ No HIGH or CRITICAL vulnerabilities found. No upgrade request needed."
         fi
 
-    # 15. Upload upgrade request as artifact (if file exists)
+    # 15. Upload upgrade request as artifact
     - name: Upload Upgrade Request Artifact
       if: always()
       uses: ./.github/actions/upload-artifact
