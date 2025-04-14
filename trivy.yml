@@ -31,7 +31,7 @@ jobs:
 
     # 4. Cache Trivy DB
     - name: Cache Trivy DB
-      uses: actions/cache@v2
+      uses: actions/cache@v3
       with:
         path: ~/.cache/trivy
         key: trivy-db-${{ runner.os }}-${{ hashFiles('**/*.yaml', '**/*.yml') }}
@@ -88,11 +88,38 @@ jobs:
     # 12. Run the Python script to convert JSON to Excel
     - name: Convert JSON to Excel
       run: |
-        python json_to_excel.py  # Assuming the script is present
+        python json_to_excel.py  # Ensure this file exists in the repo
 
     # 13. Upload the Excel file as an artifact
     - name: Upload Excel Scan Results
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v2
       with:
         name: trivy-scan-results-excel
-        path: trivy-scan-results.xlsx  # Path to the generated Excel file
+        path: trivy-scan-results.xlsx
+
+    # 14. Check for HIGH or CRITICAL vulnerabilities and create an upgrade request
+    - name: Check vulnerabilities and generate upgrade request
+      run: |
+        sudo apt-get install -y jq
+        CRITICAL=$(jq '[.Results[].Vulnerabilities[]? | select(.Severity == "CRITICAL")] | length' trivy-scan-results.json)
+        HIGH=$(jq '[.Results[].Vulnerabilities[]? | select(.Severity == "HIGH")] | length' trivy-scan-results.json)
+
+        if [ "$CRITICAL" -gt 0 ] || [ "$HIGH" -gt 0 ]; then
+          echo "🚨 Detected $CRITICAL CRITICAL and $HIGH HIGH vulnerabilities."
+          echo "## 🚨 Image Upgrade Request" > upgrade-request.md
+          echo "- **Image**: ${{ env.IMAGE }}" >> upgrade-request.md
+          echo "- **CRITICAL Vulnerabilities**: $CRITICAL" >> upgrade-request.md
+          echo "- **HIGH Vulnerabilities**: $HIGH" >> upgrade-request.md
+          echo "- **Action Required**: Please upgrade to a secure base image." >> upgrade-request.md
+        else
+          echo "✅ No HIGH or CRITICAL vulnerabilities found. No upgrade request needed."
+        fi
+
+    # 15. Upload upgrade request as artifact (if file exists)
+    - name: Upload Upgrade Request Artifact
+      if: always()
+      uses: actions/upload-artifact@v2
+      with:
+        name: image-upgrade-request
+        path: upgrade-request.md
+        if-no-files-found: ignore
